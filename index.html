@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SCYTER — Unicode Cipher</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --border:    #2e3144;
+      --accent:    #7c6af7;
+      --accent-h:  #9d8fff;
+      --text:      #e2e4f0;
+      --muted:     #6b6f8a;
+      --success:   #4ade80;
+      --error:     #f87171;
+      --radius:    12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 16px 64px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    header h1 {
+      font-size: 2.6rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      background: linear-gradient(135deg, var(--accent), #a78bfa, #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    header p {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 780px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    /* Mode selector row */
+    .mode-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .mode-row label {
+      font-size: 0.9rem;
+      color: var(--muted);
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    select#mode {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 36px 8px 14px;
+      font-size: 1rem;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b6f8a' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      transition: border-color .2s;
+    }
+
+    select#mode:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    /* Text area panels */
+    .panels {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 580px) {
+      .panels { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    textarea {
+      width: 100%;
+      height: 180px;
+      resize: vertical;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 0.95rem;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      line-height: 1.55;
+      transition: border-color .2s;
+    }
+
+    textarea:focus { outline: none; border-color: var(--accent); }
+    textarea[readonly] { cursor: default; color: var(--accent-h); }
+    textarea::placeholder { color: var(--muted); }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: background .2s, transform .1s;
+    }
+
+    .btn:active { transform: scale(0.97); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover { background: var(--accent-h); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .btn-ghost:hover { color: var(--text); border-color: var(--accent); }
+
+    .btn-copy {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 5px 11px;
+      font-size: 0.8rem;
+    }
+
+    .btn-copy:hover { color: var(--text); border-color: var(--accent); }
+    .btn-copy.copied { color: var(--success); border-color: var(--success); }
+
+    .action-row {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    /* Error / info message */
+    .msg {
+      font-size: 0.875rem;
+      text-align: center;
+      min-height: 20px;
+      transition: color .2s;
+    }
+
+    .msg.error { color: var(--error); }
+    .msg.info  { color: var(--muted); }
+
+    footer {
+      margin-top: 40px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>SCYTER</h1>
+  <p>Unicode-based ternary cipher &mdash; encode or decode any text</p>
+</header>
+
+<div class="card">
+
+  <div class="mode-row">
+    <label for="mode">Mode</label>
+    <select id="mode">
+      <option value="encode">Encode</option>
+      <option value="decode">Decode</option>
+    </select>
+  </div>
+
+  <div class="panels">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label" id="input-label">Plaintext</span>
+      </div>
+      <textarea id="input" placeholder="Type your message here…" spellcheck="false"></textarea>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label" id="output-label">Cipher</span>
+        <button class="btn btn-copy" id="copy-btn" title="Copy to clipboard">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M4 2a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V5.5L11.5 2H8a2 2 0 0 0-2 2v1H4zm4 1.5 3 3H10a1 1 0 0 1-1-1V3.5zM2 4a1 1 0 0 1 1-1h3v3a2 2 0 0 0 2 2h3v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4z"/>
+          </svg>
+          Copy
+        </button>
+      </div>
+      <textarea id="output" readonly placeholder="Result will appear here…"></textarea>
+    </div>
+  </div>
+
+  <div class="action-row">
+    <button class="btn btn-primary" id="run-btn">Run</button>
+    <button class="btn btn-ghost" id="clear-btn">Clear</button>
+  </div>
+
+  <p class="msg info" id="msg"></p>
+
+</div>
+
+<footer>SCYTER &copy; 2026 &mdash; Ternary Unicode Cipher</footer>
+
+<script>
+  "use strict";
+
+  /* ── SCYTER core algorithm (ported from UNICODE_SCYTER.py) ── */
+
+  const ALPHABET = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O",
+                    "P","Q","R","S","T","U","V","W","X","Y","Z","/"];
+  const NUMBERS  = ["001","002","010","011","012","020","021","022","100","101",
+                    "102","110","111","112","120","121","122","200","201","202",
+                    "210","211","212","220","221","222","000"];
+
+  /** Convert a decimal integer to a 12-digit LSB-first ternary string. */
+  function ternary(num) {
+    const ter = [];
+    for (let power = 11; power >= 0; power--) {
+      ter.push(String(Math.floor(num / Math.pow(3, power))));
+      num = num % Math.pow(3, power);
+    }
+    ter.reverse();
+    return ter.join("");
+  }
+
+  /** Decode a 12-digit MSB-first ternary string to a decimal integer. */
+  function terdec(s) {
+    let sum = 0;
+    for (let p = 11; p >= 0; p--) {
+      sum += parseInt(s[11 - p], 10) * Math.pow(3, p);
+    }
+    return sum;
+  }
+
+  function encode(message) {
+    if (!message) return "";
+
+    // 1. Unicode code points (BMP + astral, matching Python's ord())
+    const unicodes = [];
+    for (let i = 0; i < message.length; ) {
+      const cp = message.codePointAt(i);
+      unicodes.push(cp);
+      i += cp > 0xFFFF ? 2 : 1;
+    }
+
+    // 2. Convert each code point to 12-digit LSB-first ternary
+    const concat = unicodes.map(ternary).join("");
+
+    // 3. Split into groups of 3 and do column transposition
+    const mnum = [];
+    for (let s = 0; s < concat.length; s += 3) mnum.push(concat.slice(s, s + 3));
+
+    const A = [], B = [], C = [];
+    for (const g of mnum) { A.push(g[0]); B.push(g[1]); C.push(g[2]); }
+    const scyedstr = A.join("") + B.join("") + C.join("");
+
+    // 4. Map each triplet to a cipher letter
+    const result = [];
+    for (let n = 0; n < scyedstr.length / 3; n++) {
+      const triplet = scyedstr.slice(n * 3, n * 3 + 3);
+      const idx = NUMBERS.indexOf(triplet);
+      if (idx === -1) return null; // should not happen for valid input
+      result.push(ALPHABET[idx]);
+    }
+
+    return result.join("").replace(/ /g, "/");
+  }
+
+  function decode(code) {
+    if (!code) return "";
+
+    // 1. Map each cipher letter back to its ternary triplet
+    const cnum = [];
+    for (let c = 0; c < code.length; c++) {
+      const idx = ALPHABET.indexOf(code[c]);
+      if (idx === -1) return null; // invalid character
+      cnum.push(NUMBERS[idx]);
+    }
+    const str = cnum.join("");
+
+    // 2. Reverse the column transposition
+    const third = Math.floor(str.length / 3);
+    const s1 = str.slice(0, third);
+    const s2 = str.slice(third, third * 2);
+    const s3 = str.slice(third * 2);
+
+    const decoded = [];
+    for (let d = 0; d < s1.length; d++) decoded.push(s1[d] + s2[d] + s3[d]);
+
+    // 3. Reverse all characters, decode 12 at a time
+    const final = decoded.join("").split("").reverse().join("");
+
+    const chars = [];
+    for (let f = 0; f < final.length; f += 12) {
+      chars.push(String.fromCodePoint(terdec(final.slice(f, f + 12))));
+    }
+
+    // 4. Reverse the character array
+    chars.reverse();
+    return chars.join("");
+  }
+
+  /* ── UI wiring ── */
+
+  const modeEl    = document.getElementById("mode");
+  const inputEl   = document.getElementById("input");
+  const outputEl  = document.getElementById("output");
+  const runBtn    = document.getElementById("run-btn");
+  const clearBtn  = document.getElementById("clear-btn");
+  const copyBtn   = document.getElementById("copy-btn");
+  const msgEl     = document.getElementById("msg");
+  const inLabel   = document.getElementById("input-label");
+  const outLabel  = document.getElementById("output-label");
+
+  function updateLabels() {
+    if (modeEl.value === "encode") {
+      inLabel.textContent  = "Plaintext";
+      outLabel.textContent = "Cipher";
+      inputEl.placeholder  = "Type your message here…";
+      outputEl.placeholder = "Encoded cipher will appear here…";
+    } else {
+      inLabel.textContent  = "Cipher";
+      outLabel.textContent = "Plaintext";
+      inputEl.placeholder  = "Paste your cipher here…";
+      outputEl.placeholder = "Decoded message will appear here…";
+    }
+  }
+
+  function setMsg(text, type = "info") {
+    msgEl.textContent = text;
+    msgEl.className   = "msg " + type;
+  }
+
+  function run() {
+    const raw = inputEl.value;
+    if (!raw.trim()) { setMsg("Enter some text first.", "info"); return; }
+
+    let result;
+    if (modeEl.value === "encode") {
+      result = encode(raw);
+      if (result === null) { setMsg("Encoding failed: unsupported characters.", "error"); return; }
+    } else {
+      // Normalise: strip spaces, uppercase
+      const cleaned = raw.replace(/\s/g, "").toUpperCase();
+      result = decode(cleaned);
+      if (result === null) { setMsg("Decoding failed: cipher contains invalid characters.", "error"); return; }
+    }
+
+    outputEl.value = result;
+    setMsg("");
+  }
+
+  modeEl.addEventListener("change", () => { updateLabels(); outputEl.value = ""; setMsg(""); });
+  runBtn.addEventListener("click", run);
+
+  inputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run();
+  });
+
+  clearBtn.addEventListener("click", () => {
+    inputEl.value  = "";
+    outputEl.value = "";
+    setMsg("");
+    inputEl.focus();
+  });
+
+  copyBtn.addEventListener("click", async () => {
+    const text = outputEl.value;
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      copyBtn.textContent = "✓ Copied";
+      copyBtn.classList.add("copied");
+      setTimeout(() => {
+        copyBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V5.5L11.5 2H8a2 2 0 0 0-2 2v1H4zm4 1.5 3 3H10a1 1 0 0 1-1-1V3.5zM2 4a1 1 0 0 1 1-1h3v3a2 2 0 0 0 2 2h3v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4z"/></svg> Copy`;
+        copyBtn.classList.remove("copied");
+      }, 2000);
+    } catch {
+      setMsg("Copy failed — try selecting the text manually.", "error");
+    }
+  });
+
+  updateLabels();
+</script>
+</body>
+</html>
