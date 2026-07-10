@@ -1,4 +1,73 @@
 import math
+from datetime import datetime
+import pytz
+
+# Get constellation for a date
+def get_constellation(date_obj):
+    # Constellation date ranges (month, day)
+    constellations = [
+        ("aries", (3, 21), (4, 19)),
+        ("taurus", (4, 20), (5, 20)),
+        ("gemini", (5, 21), (6, 20)),
+        ("cancer", (6, 21), (7, 22)),
+        ("leo", (7, 23), (8, 22)),
+        ("virgo", (8, 23), (9, 22)),
+        ("libra", (9, 23), (10, 22)),
+        ("scorpio", (10, 23), (11, 21)),
+        ("sagittarius", (11, 22), (12, 21)),
+        ("capricorn", (12, 22), (1, 19)),
+        ("aquarius", (1, 20), (2, 18)),
+        ("pisces", (2, 19), (3, 20))
+    ]
+    
+    month, day = date_obj.month, date_obj.day
+    
+    for name, (start_month, start_day), (end_month, end_day) in constellations:
+        if start_month == end_month:
+            if month == start_month and start_day <= day <= end_day:
+                return name
+        else:
+            if (month == start_month and day >= start_day) or (month == end_month and day <= end_day):
+                return name
+    return "capricorn"
+
+# Get constellation for today in Beijing timezone
+def get_today_constellation():
+    beijing_tz = pytz.timezone('Asia/Shanghai')
+    today_beijing = datetime.now(beijing_tz).date()
+    return get_constellation(datetime(today_beijing.year, today_beijing.month, today_beijing.day))
+
+# Vigenère cipher
+def vigenere_encode(text, key):
+    result = []
+    key_index = 0
+    for char in text:
+        if char.isalpha():
+            shift = ord(key[key_index % len(key)].upper()) - ord('A')
+            if char.isupper():
+                result.append(chr((ord(char) - ord('A') + shift) % 26 + ord('A')))
+            else:
+                result.append(chr((ord(char) - ord('a') + shift) % 26 + ord('a')))
+            key_index += 1
+        else:
+            result.append(char)
+    return "".join(result)
+
+def vigenere_decode(text, key):
+    result = []
+    key_index = 0
+    for char in text:
+        if char.isalpha():
+            shift = ord(key[key_index % len(key)].upper()) - ord('A')
+            if char.isupper():
+                result.append(chr((ord(char) - ord('A') - shift) % 26 + ord('A')))
+            else:
+                result.append(chr((ord(char) - ord('a') - shift) % 26 + ord('a')))
+            key_index += 1
+        else:
+            result.append(char)
+    return "".join(result)
+
 print("Hello, welcome to SCYTER! Do you want to encode or decode? \nNOTE: please enter your response as \"encode\" or \"decode\", in all lowercase; otherwise, your response may be considered as invalid.")
 ende = input()
 alphabet = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","/"]
@@ -50,10 +119,23 @@ if ende == "encode":
     scyedarr.append(alphabet[numbers.index(scyedstr[n*3:n*3+3])])
     n += 1
   Final = "".join(scyedarr)
+  
+  # Apply Vigenère cipher with constellation passcode
+  passcode = get_today_constellation()[::-1].lower()  # Reverse and lowercase
+  Final = vigenere_encode(Final, passcode)
+  
   print("Here\'s the cipher:\n" + Final.replace(" ","/"))
 if ende == "decode":
   print("Cool! Can you show me your cipher?\n NOTE: your cipher shouldn't contain spaces, so make sure there is no spacing when copying and pasting.")
   code = input()
+  
+  # Prompt for passcode
+  print("Please enter the passcode (constellation name spelled backwards, all lowercase):")
+  passcode = input().lower()
+  
+  # Apply Vigenère decoding with provided passcode (no error checking)
+  code = vigenere_decode(code, passcode)
+  
   cnum = []
   X = []
   Y = []
@@ -97,6 +179,7 @@ if ende == "decode":
   while SPLIT < len(end):
     FINALSPLIT.append(end[SPLIT])
     SPLIT += 1
+  FINALSPLIT.reverse()
   FINALSPLIT.reverse()
   end = "".join(FINALSPLIT)
   print(end)

@@ -234,6 +234,15 @@
     </select>
   </div>
 
+  <div id="passcode-section" style="display: none;">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label">Passcode</span>
+      </div>
+      <input type="text" id="passcode" placeholder="Enter passcode (constellation spelled backwards, all lowercase)" spellcheck="false" style="width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.95rem; transition: border-color 0.2s;" />
+    </div>
+  </div>
+
   <div class="panels">
     <div class="panel">
       <div class="panel-header">
@@ -278,6 +287,81 @@
                     "102","110","111","112","120","121","122","200","201","202",
                     "210","211","212","220","221","222","000"];
 
+  /** Get constellation for a given date */
+  function getConstellation(date) {
+    const constellations = [
+      ["aries", [3, 21], [4, 19]],
+      ["taurus", [4, 20], [5, 20]],
+      ["gemini", [5, 21], [6, 20]],
+      ["cancer", [6, 21], [7, 22]],
+      ["leo", [7, 23], [8, 22]],
+      ["virgo", [8, 23], [9, 22]],
+      ["libra", [9, 23], [10, 22]],
+      ["scorpio", [10, 23], [11, 21]],
+      ["sagittarius", [11, 22], [12, 21]],
+      ["capricorn", [12, 22], [1, 19]],
+      ["aquarius", [1, 20], [2, 18]],
+      ["pisces", [2, 19], [3, 20]]
+    ];
+
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+
+    for (const [name, [startM, startD], [endM, endD]] of constellations) {
+      if (startM === endM) {
+        if (month === startM && day >= startD && day <= endD) return name;
+      } else {
+        if ((month === startM && day >= startD) || (month === endM && day <= endD)) return name;
+      }
+    }
+    return "capricorn";
+  }
+
+  /** Get today's constellation (using browser local time as proxy for Beijing) */
+  function getTodayConstellation() {
+    return getConstellation(new Date());
+  }
+
+  /** Vigenère encode */
+  function vigenereEncode(text, key) {
+    const result = [];
+    let keyIndex = 0;
+    for (const char of text) {
+      if (/[a-zA-Z]/.test(char)) {
+        const shift = key[keyIndex % key.length].toUpperCase().charCodeAt(0) - 65;
+        if (char === char.toUpperCase()) {
+          result.push(String.fromCharCode((char.charCodeAt(0) - 65 + shift) % 26 + 65));
+        } else {
+          result.push(String.fromCharCode((char.charCodeAt(0) - 97 + shift) % 26 + 97));
+        }
+        keyIndex++;
+      } else {
+        result.push(char);
+      }
+    }
+    return result.join("");
+  }
+
+  /** Vigenère decode */
+  function vigenereDecode(text, key) {
+    const result = [];
+    let keyIndex = 0;
+    for (const char of text) {
+      if (/[a-zA-Z]/.test(char)) {
+        const shift = key[keyIndex % key.length].toUpperCase().charCodeAt(0) - 65;
+        if (char === char.toUpperCase()) {
+          result.push(String.fromCharCode((char.charCodeAt(0) - 65 - shift + 26) % 26 + 65));
+        } else {
+          result.push(String.fromCharCode((char.charCodeAt(0) - 97 - shift + 26) % 26 + 97));
+        }
+        keyIndex++;
+      } else {
+        result.push(char);
+      }
+    }
+    return result.join("");
+  }
+
   /** Convert a decimal integer to a 12-digit LSB-first ternary string. */
   function ternary(num) {
     const ter = [];
@@ -321,30 +405,39 @@
     const scyedstr = A.join("") + B.join("") + C.join("");
 
     // 4. Map each triplet to a cipher letter
-    const result = [];
+    let result = [];
     for (let n = 0; n < scyedstr.length / 3; n++) {
       const triplet = scyedstr.slice(n * 3, n * 3 + 3);
       const idx = NUMBERS.indexOf(triplet);
-      if (idx === -1) return null; // should not happen for valid input
+      if (idx === -1) return null;
       result.push(ALPHABET[idx]);
     }
 
-    return result.join("").replace(/ /g, "/");
+    result = result.join("").replace(/ /g, "/");
+
+    // 5. Apply Vigenère cipher with constellation passcode
+    const passcode = getTodayConstellation().split("").reverse().join("").toLowerCase();
+    result = vigenereEncode(result, passcode);
+
+    return result;
   }
 
-  function decode(code) {
+  function decode(code, passcode) {
     if (!code) return "";
 
-    // 1. Map each cipher letter back to its ternary triplet
+    // 1. Apply Vigenère decoding with provided passcode (silently proceed if wrong)
+    code = vigenereDecode(code, passcode);
+
+    // 2. Map each cipher letter back to its ternary triplet
     const cnum = [];
     for (let c = 0; c < code.length; c++) {
       const idx = ALPHABET.indexOf(code[c]);
-      if (idx === -1) return null; // invalid character
+      if (idx === -1) return null;
       cnum.push(NUMBERS[idx]);
     }
     const str = cnum.join("");
 
-    // 2. Reverse the column transposition
+    // 3. Reverse the column transposition
     const third = Math.floor(str.length / 3);
     const s1 = str.slice(0, third);
     const s2 = str.slice(third, third * 2);
@@ -353,7 +446,7 @@
     const decoded = [];
     for (let d = 0; d < s1.length; d++) decoded.push(s1[d] + s2[d] + s3[d]);
 
-    // 3. Reverse all characters, decode 12 at a time
+    // 4. Reverse all characters, decode 12 at a time
     const final = decoded.join("").split("").reverse().join("");
 
     const chars = [];
@@ -361,7 +454,7 @@
       chars.push(String.fromCodePoint(terdec(final.slice(f, f + 12))));
     }
 
-    // 4. Reverse the character array
+    // 5. Reverse the character array
     chars.reverse();
     return chars.join("");
   }
@@ -377,6 +470,8 @@
   const msgEl     = document.getElementById("msg");
   const inLabel   = document.getElementById("input-label");
   const outLabel  = document.getElementById("output-label");
+  const passcodeSection = document.getElementById("passcode-section");
+  const passcodeEl = document.getElementById("passcode");
 
   function updateLabels() {
     if (modeEl.value === "encode") {
@@ -384,11 +479,13 @@
       outLabel.textContent = "Cipher";
       inputEl.placeholder  = "Type your message here…";
       outputEl.placeholder = "Encoded cipher will appear here…";
+      passcodeSection.style.display = "none";
     } else {
       inLabel.textContent  = "Cipher";
       outLabel.textContent = "Plaintext";
       inputEl.placeholder  = "Paste your cipher here…";
       outputEl.placeholder = "Decoded message will appear here…";
+      passcodeSection.style.display = "block";
     }
   }
 
@@ -406,9 +503,11 @@
       result = encode(raw);
       if (result === null) { setMsg("Encoding failed: unsupported characters.", "error"); return; }
     } else {
-      // Normalise: strip spaces, uppercase
+      const passcode = passcodeEl.value;
+      if (!passcode.trim()) { setMsg("Please enter the passcode.", "info"); return; }
+      
       const cleaned = raw.replace(/\s/g, "").toUpperCase();
-      result = decode(cleaned);
+      result = decode(cleaned, passcode);
       if (result === null) { setMsg("Decoding failed: cipher contains invalid characters.", "error"); return; }
     }
 
@@ -416,16 +515,21 @@
     setMsg("");
   }
 
-  modeEl.addEventListener("change", () => { updateLabels(); outputEl.value = ""; setMsg(""); });
+  modeEl.addEventListener("change", () => { updateLabels(); outputEl.value = ""; passcodeEl.value = ""; setMsg(""); });
   runBtn.addEventListener("click", run);
 
   inputEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run();
   });
 
+  passcodeEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run();
+  });
+
   clearBtn.addEventListener("click", () => {
     inputEl.value  = "";
     outputEl.value = "";
+    passcodeEl.value = "";
     setMsg("");
     inputEl.focus();
   });
