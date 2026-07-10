@@ -79,25 +79,34 @@
       text-transform: uppercase;
     }
 
-    select#mode {
-      background: var(--bg);
-      color: var(--text);
+    .mode-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0;
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 8px 36px 8px 14px;
-      font-size: 1rem;
-      cursor: pointer;
-      appearance: none;
-      -webkit-appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b6f8a' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 12px center;
-      transition: border-color .2s;
+      overflow: hidden;
+      background: var(--bg);
     }
 
-    select#mode:focus {
-      outline: none;
-      border-color: var(--accent);
+    .mode-toggle button {
+      padding: 8px 16px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .mode-toggle button.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .mode-toggle button:hover:not(.active) {
+      color: var(--text);
     }
 
     /* Text area panels */
@@ -227,11 +236,11 @@
 <div class="card">
 
   <div class="mode-row">
-    <label for="mode">Mode</label>
-    <select id="mode">
-      <option value="encode">Encode</option>
-      <option value="decode">Decode</option>
-    </select>
+    <label>Mode</label>
+    <div class="mode-toggle">
+      <button id="mode-encode" class="active" data-mode="encode">Encode</button>
+      <button id="mode-decode" data-mode="decode">Decode</button>
+    </div>
   </div>
 
   <div id="passcode-section" style="display: none;">
@@ -461,7 +470,10 @@
 
   /* ── UI wiring ── */
 
-  const modeEl    = document.getElementById("mode");
+  const modeEncodeBtn = document.getElementById("mode-encode");
+  const modeDecodeBtn = document.getElementById("mode-decode");
+  let currentMode = "encode";
+  
   const inputEl   = document.getElementById("input");
   const outputEl  = document.getElementById("output");
   const runBtn    = document.getElementById("run-btn");
@@ -473,8 +485,20 @@
   const passcodeSection = document.getElementById("passcode-section");
   const passcodeEl = document.getElementById("passcode");
 
+  function setMode(mode) {
+    currentMode = mode;
+    if (mode === "encode") {
+      modeEncodeBtn.classList.add("active");
+      modeDecodeBtn.classList.remove("active");
+    } else {
+      modeDecodeBtn.classList.add("active");
+      modeEncodeBtn.classList.remove("active");
+    }
+    updateLabels();
+  }
+
   function updateLabels() {
-    if (modeEl.value === "encode") {
+    if (currentMode === "encode") {
       inLabel.textContent  = "Plaintext";
       outLabel.textContent = "Cipher";
       inputEl.placeholder  = "Type your message here…";
@@ -499,7 +523,7 @@
     if (!raw.trim()) { setMsg("Enter some text first.", "info"); return; }
 
     let result;
-    if (modeEl.value === "encode") {
+    if (currentMode === "encode") {
       result = encode(raw);
       if (result === null) { setMsg("Encoding failed: unsupported characters.", "error"); return; }
     } else {
@@ -515,7 +539,8 @@
     setMsg("");
   }
 
-  modeEl.addEventListener("change", () => { updateLabels(); outputEl.value = ""; passcodeEl.value = ""; setMsg(""); });
+  modeEncodeBtn.addEventListener("click", () => { setMode("encode"); outputEl.value = ""; passcodeEl.value = ""; setMsg(""); });
+  modeDecodeBtn.addEventListener("click", () => { setMode("decode"); outputEl.value = ""; passcodeEl.value = ""; setMsg(""); });
   runBtn.addEventListener("click", run);
 
   inputEl.addEventListener("keydown", (e) => {
