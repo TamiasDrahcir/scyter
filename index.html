@@ -243,15 +243,12 @@
     </div>
   </div>
 
-  <div id="flag-section" style="display: none;">
+  <div id="passcode-section" style="display: none;">
     <div class="panel">
       <div class="panel-header">
-        <span class="panel-label">Flag</span>
+        <span class="panel-label">Passcode</span>
       </div>
-      <select id="flag-select" spellcheck="false" style="width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.95rem; transition: border-color 0.2s; cursor: pointer;">
-        <option value="|XRX">|XRX — Reversed Zodiac (Default)</option>
-        <option value="|HM">|HM — Hiyama Kiyoteru Anniversary</option>
-      </select>
+      <input type="text" id="passcode" spellcheck="false" placeholder="xxxxx/hkxxx" style="width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.95rem; transition: border-color 0.2s;" />
     </div>
   </div>
 
@@ -356,6 +353,14 @@
       return getHKKey();
     }
     return null;
+  }
+
+  /** Detect passcode type from its format: hk### -> HK, letters-only -> RZ */
+  function detectKeyType(passcode) {
+    const trimmed = passcode.trim();
+    if (/^hk\d+$/i.test(trimmed)) return "HK";
+    if (/^[a-zA-Z]+$/.test(trimmed)) return "RZ";
+    return "UNKNOWN";
   }
 
   /** Extract flag from message */
@@ -464,8 +469,9 @@
       throw new Error(`Unknown flag '${flag}'.`);
     }
     
-    // Store flag info for UI
+    // Store flag/key info for UI
     window.lastUsedFlag = flag;
+    window.lastUsedKey = key;
 
     // 4. Unicode code points
     const unicodes = [];
@@ -503,17 +509,11 @@
     return result;
   }
 
-  function decode(code, flag) {
+  function decode(code, passcode) {
     if (!code) return "";
 
-    // 1. Get the key for this flag
-    const key = getKeyFromFlag(flag);
-    if (!key) {
-      throw new Error(`Unknown flag '${flag}'.`);
-    }
-
-    // 2. Apply Vigenère decoding with the determined key
-    code = vigenereDecode(code, key);
+    // 1. Apply Vigenère decoding directly with the entered passcode
+    code = vigenereDecode(code, passcode);
 
     // 3. Map each cipher letter back to its ternary triplet
     const cnum = [];
@@ -560,8 +560,8 @@
   const msgEl     = document.getElementById("msg");
   const inLabel   = document.getElementById("input-label");
   const outLabel  = document.getElementById("output-label");
-  const flagSection = document.getElementById("flag-section");
-  const flagSelect = document.getElementById("flag-select");
+  const passcodeSection = document.getElementById("passcode-section");
+  const passcodeEl = document.getElementById("passcode");
 
   function setMode(mode) {
     currentMode = mode;
@@ -581,13 +581,13 @@
       outLabel.textContent = "Cipher";
       inputEl.placeholder  = "Type your message here… (add |HM at the end to use Hiyama key)";
       outputEl.placeholder = "Encoded cipher will appear here…";
-      flagSection.style.display = "none";
+      passcodeSection.style.display = "none";
     } else {
       inLabel.textContent  = "Cipher";
       outLabel.textContent = "Plaintext";
       inputEl.placeholder  = "Paste your cipher here…";
       outputEl.placeholder = "Decoded message will appear here…";
-      flagSection.style.display = "block";
+      passcodeSection.style.display = "block";
     }
   }
 
@@ -605,19 +605,24 @@
       try {
         result = encode(raw);
         if (result === null) { setMsg("Encoding failed: unsupported characters.", "error"); return; }
-        setMsg(`Using flag: ${window.lastUsedFlag || "|XRX"}`, "info");
+        setMsg(`Using flag: ${window.lastUsedFlag || "|XRX"} — passcode: ${window.lastUsedKey}`, "info");
       } catch (err) {
         setMsg(err.message, "error");
         return;
       }
     } else {
-      const flag = flagSelect.value;
+      const passcode = passcodeEl.value;
+      if (!passcode.trim()) { setMsg("Please enter the passcode.", "info"); return; }
+
+      const keyType = detectKeyType(passcode);
+      if (keyType === "UNKNOWN") { setMsg("Unrecognized passcode format. Expected a zodiac word or an hk### code.", "error"); return; }
+
       const cleaned = raw.replace(/\s/g, "").toUpperCase();
       
       try {
-        result = decode(cleaned, flag);
+        result = decode(cleaned, passcode);
         if (result === null) { setMsg("Decoding failed: cipher contains invalid characters.", "error"); return; }
-        setMsg("");
+        setMsg(`Detected key type: ${keyType === "HK" ? "HK (Hiyama Kiyoteru Anniversary)" : "RZ (Reversed Zodiac)"}`, "info");
       } catch (err) {
         setMsg(err.message, "error");
         return;
@@ -627,21 +632,22 @@
     outputEl.value = result;
   }
 
-  modeEncodeBtn.addEventListener("click", () => { setMode("encode"); outputEl.value = ""; setMsg(""); });
-  modeDecodeBtn.addEventListener("click", () => { setMode("decode"); outputEl.value = ""; setMsg(""); });
+  modeEncodeBtn.addEventListener("click", () => { setMode("encode"); outputEl.value = ""; passcodeEl.value = ""; setMsg(""); });
+  modeDecodeBtn.addEventListener("click", () => { setMode("decode"); outputEl.value = ""; passcodeEl.value = ""; setMsg(""); });
   runBtn.addEventListener("click", run);
 
   inputEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run();
   });
 
-  flagSelect.addEventListener("keydown", (e) => {
+  passcodeEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run();
   });
 
   clearBtn.addEventListener("click", () => {
     inputEl.value  = "";
     outputEl.value = "";
+    passcodeEl.value = "";
     setMsg("");
     inputEl.focus();
   });

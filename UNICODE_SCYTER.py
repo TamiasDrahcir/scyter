@@ -97,6 +97,15 @@ def get_key_from_flag(flag):
             return get_hk_key().lower()  # HKxxx in lowercase
     return None
 
+# Detect passcode type from its format: hk### -> HK, letters-only -> RZ
+def detect_key_type(passcode):
+    trimmed = passcode.strip()
+    if trimmed[:2].lower() == "hk" and trimmed[2:].isdigit():
+        return "HK"
+    if trimmed.isalpha():
+        return "RZ"
+    return "UNKNOWN"
+
 # Extract flag from message (flag is at the end, format: |XX or |XXX)
 def extract_flag(message):
     if "|" in message:
@@ -135,7 +144,7 @@ if ende == "encode":
     print(f"ERROR: Unknown flag '{flag}'. Valid flags are: {', '.join(FLAG_KEY_MAP.keys())}")
     exit()
   
-  print(f"Using flag: {flag}")
+  print(f"Using flag: {flag} \u2014 passcode: {key}")
   
   unicodes = []
   m = 0
@@ -187,19 +196,18 @@ if ende == "decode":
   print("Cool! Can you show me your cipher?\n NOTE: your cipher shouldn't contain spaces, so make sure there is no spacing when copying and pasting.")
   code = input()
   
-  # Prompt for flag
-  print("Please enter the flag (e.g., |XRX for default, or |HM for Hiyama Kiyoteru):")
-  flag = input().strip()
+  # Prompt for passcode
+  print("Please enter the passcode (e.g. xxxxx for zodiac, or hkxxx for Hiyama Kiyoteru):")
+  key = input().strip()
   
-  # Validate flag
-  if flag not in FLAG_KEY_MAP:
-    print(f"ERROR: Unknown flag '{flag}'. Valid flags are: {', '.join(FLAG_KEY_MAP.keys())}")
+  # Auto-detect the passcode type
+  key_type = detect_key_type(key)
+  if key_type == "UNKNOWN":
+    print("ERROR: Unrecognized passcode format. Expected a zodiac word or an hk### code.")
     exit()
+  print(f"Detected key type: {key_type}")
   
-  # Get the key for this flag
-  key = get_key_from_flag(flag)
-  
-  # Apply Vigenère decoding with the determined key
+  # Apply Vigenère decoding directly with the entered passcode
   code = vigenere_decode(code, key)
   
   cnum = []
