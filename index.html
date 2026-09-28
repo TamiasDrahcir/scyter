@@ -243,12 +243,15 @@
     </div>
   </div>
 
-  <div id="passcode-section" style="display: none;">
+  <div id="flag-section" style="display: none;">
     <div class="panel">
       <div class="panel-header">
-        <span class="panel-label">Passcode</span>
+        <span class="panel-label">Flag</span>
       </div>
-      <input type="text" id="passcode" spellcheck="false" style="width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.95rem; transition: border-color 0.2s;" />
+      <select id="flag-select" spellcheck="false" style="width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.95rem; transition: border-color 0.2s; cursor: pointer;">
+        <option value="|XRX">|XRX — Reversed Zodiac (Default)</option>
+        <option value="|HM">|HM — Hiyama Kiyoteru Anniversary</option>
+      </select>
     </div>
   </div>
 
@@ -326,9 +329,56 @@
     return "capricorn";
   }
 
+  /** Get HK key (Hiyama Kiyoteru Anniversary - Daily) */
+  function getHKKey() {
+    const today = new Date();
+    const anniversary = new Date(today.getFullYear(), 5, 19); // June 19 (month is 0-indexed)
+    
+    // If today is before June 19, use last year's anniversary
+    if (today < anniversary) {
+      anniversary.setFullYear(today.getFullYear() - 1);
+    }
+    
+    const daysSince = Math.floor((today - anniversary) / (1000 * 60 * 60 * 24));
+    return `hk${daysSince}`;
+  }
+
   /** Get today's constellation (using browser local time as proxy for Beijing) */
   function getTodayConstellation() {
     return getConstellation(new Date());
+  }
+
+  /** Get key from flag */
+  function getKeyFromFlag(flag) {
+    if (flag === "|XRX") {
+      return getTodayConstellation().split("").reverse().join("").toLowerCase();
+    } else if (flag === "|HM") {
+      return getHKKey();
+    }
+    return null;
+  }
+
+  /** Extract flag from message */
+  function extractFlag(message) {
+    if (!message.includes("|")) {
+      return ["|XRX", message]; // Default flag
+    }
+    
+    const lastPipeIdx = message.lastIndexOf("|");
+    const potentialFlag = message.substring(lastPipeIdx);
+    
+    // Check if it's a valid flag (pipe + 2-3 letters)
+    if ((potentialFlag.length === 4 || potentialFlag.length === 3) && 
+        potentialFlag[0] === "|" && 
+        /^[a-zA-Z]+$/.test(potentialFlag.substring(1))) {
+      
+      const flagUpper = potentialFlag.toUpperCase();
+      if (flagUpper === "|XRX" || flagUpper === "|HM") {
+        return [flagUpper, message.substring(0, lastPipeIdx)];
+      }
+    }
+    
+    return ["|XRX", message]; // Default if flag not recognized
   }
 
   /** Vigenère encode */
@@ -394,18 +444,35 @@
   function encode(message) {
     if (!message) return "";
 
-    // 1. Unicode code points (BMP + astral, matching Python's ord())
+    // 1. Extract flag from message
+    const [flag, plaintext] = extractFlag(message);
+    
+    // 2. Validate no pipes in plaintext
+    if (plaintext.includes("|")) {
+      throw new Error("Pipe character (|) is reserved for flags and cannot appear in plaintext.");
+    }
+    
+    // 3. Get the key for this flag
+    const key = getKeyFromFlag(flag);
+    if (!key) {
+      throw new Error(`Unknown flag '${flag}'.`);
+    }
+    
+    // Store flag info for UI
+    window.lastUsedFlag = flag;
+
+    // 4. Unicode code points
     const unicodes = [];
-    for (let i = 0; i < message.length; ) {
-      const cp = message.codePointAt(i);
+    for (let i = 0; i < plaintext.length; ) {
+      const cp = plaintext.codePointAt(i);
       unicodes.push(cp);
       i += cp > 0xFFFF ? 2 : 1;
     }
 
-    // 2. Convert each code point to 12-digit LSB-first ternary
+    // 5. Convert each code point to 12-digit LSB-first ternary
     const concat = unicodes.map(ternary).join("");
 
-    // 3. Split into groups of 3 and do column transposition
+    // 6. Split into groups of 3 and do column transposition
     const mnum = [];
     for (let s = 0; s < concat.length; s += 3) mnum.push(concat.slice(s, s + 3));
 
@@ -413,7 +480,7 @@
     for (const g of mnum) { A.push(g[0]); B.push(g[1]); C.push(g[2]); }
     const scyedstr = A.join("") + B.join("") + C.join("");
 
-    // 4. Map each triplet to a cipher letter
+    // 7. Map each triplet to a cipher letter
     let result = [];
     for (let n = 0; n < scyedstr.length / 3; n++) {
       const triplet = scyedstr.slice(n * 3, n * 3 + 3);
@@ -424,20 +491,25 @@
 
     result = result.join("").replace(/ /g, "/");
 
-    // 5. Apply Vigenère cipher with constellation passcode
-    const passcode = getTodayConstellation().split("").reverse().join("").toLowerCase();
-    result = vigenereEncode(result, passcode);
+    // 8. Apply Vigenère cipher with the determined key
+    result = vigenereEncode(result, key);
 
     return result;
   }
 
-  function decode(code, passcode) {
+  function decode(code, flag) {
     if (!code) return "";
 
-    // 1. Apply Vigenère decoding with provided passcode (silently proceed if wrong)
-    code = vigenereDecode(code, passcode);
+    // 1. Get the key for this flag
+    const key = getKeyFromFlag(flag);
+    if (!key) {
+      throw new Error(`Unknown flag '${flag}'.`);
+    }
 
-    // 2. Map each cipher letter back to its ternary triplet
+    // 2. Apply Vigenère decoding with the determined key
+    code = vigenereDecode(code, key);
+
+    // 3. Map each cipher letter back to its ternary triplet
     const cnum = [];
     for (let c = 0; c < code.length; c++) {
       const idx = ALPHABET.indexOf(code[c]);
@@ -446,7 +518,7 @@
     }
     const str = cnum.join("");
 
-    // 3. Reverse the column transposition
+    // 4. Reverse the column transposition
     const third = Math.floor(str.length / 3);
     const s1 = str.slice(0, third);
     const s2 = str.slice(third, third * 2);
@@ -455,7 +527,7 @@
     const decoded = [];
     for (let d = 0; d < s1.length; d++) decoded.push(s1[d] + s2[d] + s3[d]);
 
-    // 4. Reverse all characters, decode 12 at a time
+    // 5. Reverse all characters, decode 12 at a time
     const final = decoded.join("").split("").reverse().join("");
 
     const chars = [];
@@ -463,7 +535,7 @@
       chars.push(String.fromCodePoint(terdec(final.slice(f, f + 12))));
     }
 
-    // 5. Reverse the character array
+    // 6. Reverse the character array
     chars.reverse();
     return chars.join("");
   }
@@ -482,8 +554,8 @@
   const msgEl     = document.getElementById("msg");
   const inLabel   = document.getElementById("input-label");
   const outLabel  = document.getElementById("output-label");
-  const passcodeSection = document.getElementById("passcode-section");
-  const passcodeEl = document.getElementById("passcode");
+  const flagSection = document.getElementById("flag-section");
+  const flagSelect = document.getElementById("flag-select");
 
   function setMode(mode) {
     currentMode = mode;
@@ -501,15 +573,15 @@
     if (currentMode === "encode") {
       inLabel.textContent  = "Plaintext";
       outLabel.textContent = "Cipher";
-      inputEl.placeholder  = "Type your message here…";
+      inputEl.placeholder  = "Type your message here… (add |HM at the end to use Hiyama key)";
       outputEl.placeholder = "Encoded cipher will appear here…";
-      passcodeSection.style.display = "none";
+      flagSection.style.display = "none";
     } else {
       inLabel.textContent  = "Cipher";
       outLabel.textContent = "Plaintext";
       inputEl.placeholder  = "Paste your cipher here…";
       outputEl.placeholder = "Decoded message will appear here…";
-      passcodeSection.style.display = "block";
+      flagSection.style.display = "block";
     }
   }
 
@@ -524,37 +596,46 @@
 
     let result;
     if (currentMode === "encode") {
-      result = encode(raw);
-      if (result === null) { setMsg("Encoding failed: unsupported characters.", "error"); return; }
+      try {
+        result = encode(raw);
+        if (result === null) { setMsg("Encoding failed: unsupported characters.", "error"); return; }
+        setMsg(`Using flag: ${window.lastUsedFlag || "|XRX"}`, "info");
+      } catch (err) {
+        setMsg(err.message, "error");
+        return;
+      }
     } else {
-      const passcode = passcodeEl.value;
-      if (!passcode.trim()) { setMsg("Please enter the passcode.", "info"); return; }
-      
+      const flag = flagSelect.value;
       const cleaned = raw.replace(/\s/g, "").toUpperCase();
-      result = decode(cleaned, passcode);
-      if (result === null) { setMsg("Decoding failed: cipher contains invalid characters.", "error"); return; }
+      
+      try {
+        result = decode(cleaned, flag);
+        if (result === null) { setMsg("Decoding failed: cipher contains invalid characters.", "error"); return; }
+        setMsg("");
+      } catch (err) {
+        setMsg(err.message, "error");
+        return;
+      }
     }
 
     outputEl.value = result;
-    setMsg("");
   }
 
-  modeEncodeBtn.addEventListener("click", () => { setMode("encode"); outputEl.value = ""; passcodeEl.value = ""; setMsg(""); });
-  modeDecodeBtn.addEventListener("click", () => { setMode("decode"); outputEl.value = ""; passcodeEl.value = ""; setMsg(""); });
+  modeEncodeBtn.addEventListener("click", () => { setMode("encode"); outputEl.value = ""; setMsg(""); });
+  modeDecodeBtn.addEventListener("click", () => { setMode("decode"); outputEl.value = ""; setMsg(""); });
   runBtn.addEventListener("click", run);
 
   inputEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run();
   });
 
-  passcodeEl.addEventListener("keydown", (e) => {
+  flagSelect.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run();
   });
 
   clearBtn.addEventListener("click", () => {
     inputEl.value  = "";
     outputEl.value = "";
-    passcodeEl.value = "";
     setMsg("");
     inputEl.focus();
   });
