@@ -1,0 +1,23 @@
+{
+  "name": "scyter",
+  "version": "1.0.0",
+  "description": "SCYTER — A Unicode-based cipher with constellation and custom anniversary-based encryption keys",
+  "main": "UNICODE_SCYTER.py",
+  "scripts": {
+    "start": "python UNICODE_SCYTER.py",
+    "serve": "npx http-server . -p 8080 -o index.html",
+    "deploy": "git push origin main && git push origin gh-pages"
+  },
+  "keywords": [
+    "cipher",
+    "encryption",
+    "unicode",
+    "vigenere",
+    "zodiac"
+  ],
+  "author": "TamiasDrahcir",
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}
