@@ -6,7 +6,7 @@
   "scripts": {
     "start": "python UNICODE_SCYTER.py",
     "serve": "npx http-server . -p 8080 -o index.html",
-    "deploy": "git push origin main && git push origin gh-pages"
+    "deploy": "git push origin main && git checkout gh-pages && git merge main -m \"Sync gh-pages with main\" && git push origin gh-pages && git checkout main"
   },
   "keywords": [
     "cipher",
