@@ -2,6 +2,19 @@ import math
 from datetime import datetime
 import pytz
 
+# Calculate days since relationship started (June 19)
+def get_hk_key():
+    beijing_tz = pytz.timezone('Asia/Shanghai')
+    today_beijing = datetime.now(beijing_tz).date()
+    anniversary = datetime(today_beijing.year, 6, 19).date()
+    
+    # If today is before June 19, use last year's anniversary
+    if today_beijing < anniversary:
+        anniversary = datetime(today_beijing.year - 1, 6, 19).date()
+    
+    days_since = (today_beijing - anniversary).days
+    return f"HK{days_since}"
+
 # Get constellation for a date
 def get_constellation(date_obj):
     # Constellation date ranges (month, day)
@@ -68,6 +81,35 @@ def vigenere_decode(text, key):
             result.append(char)
     return "".join(result)
 
+# Flag to key mapping
+FLAG_KEY_MAP = {
+    "|XRX": "RZ",      # Default: Reversed Zodiac
+    "|HM": "HK"        # Hiyama Kiyoteru Anniversary - Daily
+}
+
+# Get key from flag
+def get_key_from_flag(flag):
+    if flag in FLAG_KEY_MAP:
+        key_type = FLAG_KEY_MAP[flag]
+        if key_type == "RZ":
+            return get_today_constellation()[::-1].lower()  # Reverse and lowercase
+        elif key_type == "HK":
+            return get_hk_key().lower()  # HKxxx in lowercase
+    return None
+
+# Extract flag from message (flag is at the end, format: |XX or |XXX)
+def extract_flag(message):
+    if "|" in message:
+        last_pipe_idx = message.rfind("|")
+        potential_flag = message[last_pipe_idx:]
+        # Check if it looks like a valid flag (pipe followed by 2-3 letters)
+        if len(potential_flag) >= 3 and len(potential_flag) <= 4 and potential_flag[0] == "|" and potential_flag[1:].isalpha():
+            if potential_flag in FLAG_KEY_MAP:
+                return potential_flag, message[:last_pipe_idx]
+    return "|XRX", message  # Default flag if none provided or unrecognized flag
+
+
+
 print("Hello, welcome to SCYTER! Do you want to encode or decode? \nNOTE: please enter your response as \"encode\" or \"decode\", in all lowercase; otherwise, your response may be considered as invalid.")
 ende = input()
 alphabet = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","/"]
@@ -76,12 +118,29 @@ while ende != "encode" and ende != "decode":
   print("I beg your pardon?")
   ende = input()
 if ende == "encode":
-  print("Great! What's your message?")
+  print("Great! What's your message?\nNOTE: pipe characters (|) are reserved for flags and are not allowed in the plaintext.")
   message = input()
+  
+  # Extract flag and validate plaintext
+  flag, plaintext = extract_flag(message)
+  
+  # Validate that plaintext doesn't contain pipe characters
+  if "|" in plaintext:
+    print("ERROR: Pipe character (|) is reserved for flags and cannot appear in plaintext.")
+    exit()
+  
+  # Get the key for this flag
+  key = get_key_from_flag(flag)
+  if key is None:
+    print(f"ERROR: Unknown flag '{flag}'. Valid flags are: {', '.join(FLAG_KEY_MAP.keys())}")
+    exit()
+  
+  print(f"Using flag: {flag}")
+  
   unicodes = []
   m = 0
-  while m < len(message):
-      unicodes.append(ord(message[m]))
+  while m < len(plaintext):
+      unicodes.append(ord(plaintext[m]))
       m += 1
   terunicode = []
   t = 0
@@ -120,21 +179,28 @@ if ende == "encode":
     n += 1
   Final = "".join(scyedarr)
   
-  # Apply Vigenère cipher with constellation passcode
-  passcode = get_today_constellation()[::-1].lower()  # Reverse and lowercase
-  Final = vigenere_encode(Final, passcode)
+  # Apply Vigenère cipher with the determined key
+  Final = vigenere_encode(Final, key)
   
   print("Here\'s the cipher:\n" + Final.replace(" ","/"))
 if ende == "decode":
   print("Cool! Can you show me your cipher?\n NOTE: your cipher shouldn't contain spaces, so make sure there is no spacing when copying and pasting.")
   code = input()
   
-  # Prompt for passcode
-  print("Please enter the passcode (constellation name spelled backwards, all lowercase):")
-  passcode = input().lower()
+  # Prompt for flag
+  print("Please enter the flag (e.g., |XRX for default, or |HM for Hiyama Kiyoteru):")
+  flag = input().strip()
   
-  # Apply Vigenère decoding with provided passcode (no error checking)
-  code = vigenere_decode(code, passcode)
+  # Validate flag
+  if flag not in FLAG_KEY_MAP:
+    print(f"ERROR: Unknown flag '{flag}'. Valid flags are: {', '.join(FLAG_KEY_MAP.keys())}")
+    exit()
+  
+  # Get the key for this flag
+  key = get_key_from_flag(flag)
+  
+  # Apply Vigenère decoding with the determined key
+  code = vigenere_decode(code, key)
   
   cnum = []
   X = []
