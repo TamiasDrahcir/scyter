@@ -48,11 +48,13 @@ def get_today_constellation():
 
 # Vigenère cipher
 def vigenere_encode(text, key):
+    # Filter key to only alphabetic characters
+    alphabetic_key = "".join(c for c in key if c.isalpha())
     result = []
     key_index = 0
     for char in text:
         if char.isalpha():
-            shift = ord(key[key_index % len(key)].upper()) - ord('A')
+            shift = ord(alphabetic_key[key_index % len(alphabetic_key)].upper()) - ord('A')
             if char.isupper():
                 result.append(chr((ord(char) - ord('A') + shift) % 26 + ord('A')))
             else:
@@ -63,11 +65,13 @@ def vigenere_encode(text, key):
     return "".join(result)
 
 def vigenere_decode(text, key):
+    # Filter key to only alphabetic characters
+    alphabetic_key = "".join(c for c in key if c.isalpha())
     result = []
     key_index = 0
     for char in text:
         if char.isalpha():
-            shift = ord(key[key_index % len(key)].upper()) - ord('A')
+            shift = ord(alphabetic_key[key_index % len(alphabetic_key)].upper()) - ord('A')
             if char.isupper():
                 result.append(chr((ord(char) - ord('A') - shift) % 26 + ord('A')))
             else:

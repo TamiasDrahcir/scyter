@@ -383,15 +383,18 @@
 
   /** Vigenère encode */
   function vigenereEncode(text, key) {
+    // Filter key to only alphabetic characters
+    const alphabeticKey = key.split("").filter(c => /[a-zA-Z]/.test(c)).join("");
     const result = [];
     let keyIndex = 0;
     for (const char of text) {
       if (/[a-zA-Z]/.test(char)) {
-        const shift = key[keyIndex % key.length].toUpperCase().charCodeAt(0) - 65;
+        const keyChar = alphabeticKey[keyIndex % alphabeticKey.length];
+        const shift = keyChar.toUpperCase().charCodeAt(0) - 65;
         if (char === char.toUpperCase()) {
-          result.push(String.fromCharCode((char.charCodeAt(0) - 65 + shift) % 26 + 65));
+          result.push(String.fromCharCode(((char.charCodeAt(0) - 65 + shift) % 26 + 26) % 26 + 65));
         } else {
-          result.push(String.fromCharCode((char.charCodeAt(0) - 97 + shift) % 26 + 97));
+          result.push(String.fromCharCode(((char.charCodeAt(0) - 97 + shift) % 26 + 26) % 26 + 97));
         }
         keyIndex++;
       } else {
@@ -403,15 +406,18 @@
 
   /** Vigenère decode */
   function vigenereDecode(text, key) {
+    // Filter key to only alphabetic characters
+    const alphabeticKey = key.split("").filter(c => /[a-zA-Z]/.test(c)).join("");
     const result = [];
     let keyIndex = 0;
     for (const char of text) {
       if (/[a-zA-Z]/.test(char)) {
-        const shift = key[keyIndex % key.length].toUpperCase().charCodeAt(0) - 65;
+        const keyChar = alphabeticKey[keyIndex % alphabeticKey.length];
+        const shift = keyChar.toUpperCase().charCodeAt(0) - 65;
         if (char === char.toUpperCase()) {
-          result.push(String.fromCharCode((char.charCodeAt(0) - 65 - shift + 26) % 26 + 65));
+          result.push(String.fromCharCode(((char.charCodeAt(0) - 65 - shift) % 26 + 26) % 26 + 65));
         } else {
-          result.push(String.fromCharCode((char.charCodeAt(0) - 97 - shift + 26) % 26 + 97));
+          result.push(String.fromCharCode(((char.charCodeAt(0) - 97 - shift) % 26 + 26) % 26 + 97));
         }
         keyIndex++;
       } else {
