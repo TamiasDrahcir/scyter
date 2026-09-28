@@ -6,11 +6,7 @@ import pytz
 def get_hk_key():
     beijing_tz = pytz.timezone('Asia/Shanghai')
     today_beijing = datetime.now(beijing_tz).date()
-    anniversary = datetime(today_beijing.year, 6, 19).date()
-    
-    # If today is before June 19, use last year's anniversary
-    if today_beijing < anniversary:
-        anniversary = datetime(today_beijing.year - 1, 6, 19).date()
+    anniversary = datetime(2026, 6, 19).date()
     
     days_since = (today_beijing - anniversary).days
     return f"HK{days_since}"
