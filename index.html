@@ -326,23 +326,30 @@
     return "capricorn";
   }
 
-  /** Get HK key (Hiyama Kiyoteru Anniversary - Daily) */
+  /** Get the current calendar date in China Standard Time (UTC+8, no DST) */
+  function getBeijingDateParts() {
+    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" });
+    const parts = fmt.formatToParts(new Date());
+    return {
+      year: +parts.find(p => p.type === "year").value,
+      month: +parts.find(p => p.type === "month").value,
+      day: +parts.find(p => p.type === "day").value
+    };
+  }
+
+  /** Get HK key (Hiyama Kiyoteru Anniversary - Daily): days since June 19, 2026 in Beijing time */
   function getHKKey() {
-    const today = new Date();
-    const anniversary = new Date(today.getFullYear(), 5, 19); // June 19 (month is 0-indexed)
-    
-    // If today is before June 19, use last year's anniversary
-    if (today < anniversary) {
-      anniversary.setFullYear(today.getFullYear() - 1);
-    }
-    
-    const daysSince = Math.floor((today - anniversary) / (1000 * 60 * 60 * 24));
+    const { year, month, day } = getBeijingDateParts();
+    const todayUTC = Date.UTC(year, month - 1, day);
+    const anniversaryUTC = Date.UTC(2026, 5, 19);
+    const daysSince = Math.floor((todayUTC - anniversaryUTC) / (1000 * 60 * 60 * 24));
     return `hk${daysSince}`;
   }
 
-  /** Get today's constellation (using browser local time as proxy for Beijing) */
+  /** Get today's constellation in Beijing time */
   function getTodayConstellation() {
-    return getConstellation(new Date());
+    const { year, month, day } = getBeijingDateParts();
+    return getConstellation(new Date(year, month - 1, day));
   }
 
   /** Get key from flag */
