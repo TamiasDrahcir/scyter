@@ -619,7 +619,7 @@
       try {
         result = encode(raw);
         if (result === null) { setMsg("Encoding failed: unsupported characters.", "error"); return; }
-        setMsg(`Using flag: ${window.lastUsedFlag || "|XRX"} — passcode: ${window.lastUsedKey}`, "info");
+        // setMsg(`Using flag: ${window.lastUsedFlag || "|XRX"} — passcode: ${window.lastUsedKey}`, "info");
       } catch (err) {
         setMsg(err.message, "error");
         return;
