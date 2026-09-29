@@ -386,16 +386,25 @@
     return ["|XRX", message]; // Default if flag not recognized
   }
 
+  /** Each key character contributes its own shift: letters use A=0..Z=25, digits use their face value */
+  function keyCharShift(c) {
+    if (/[a-zA-Z]/.test(c)) return c.toUpperCase().charCodeAt(0) - 65;
+    if (/[0-9]/.test(c)) return parseInt(c, 10);
+    return null;
+  }
+
+  function buildShiftCycle(key) {
+    return key.split("").map(keyCharShift).filter(s => s !== null);
+  }
+
   /** Vigenère encode */
   function vigenereEncode(text, key) {
-    // Filter key to only alphabetic characters
-    const alphabeticKey = key.split("").filter(c => /[a-zA-Z]/.test(c)).join("");
+    const shifts = buildShiftCycle(key);
     const result = [];
     let keyIndex = 0;
     for (const char of text) {
       if (/[a-zA-Z]/.test(char)) {
-        const keyChar = alphabeticKey[keyIndex % alphabeticKey.length];
-        const shift = keyChar.toUpperCase().charCodeAt(0) - 65;
+        const shift = shifts[keyIndex % shifts.length];
         if (char === char.toUpperCase()) {
           result.push(String.fromCharCode(((char.charCodeAt(0) - 65 + shift) % 26 + 26) % 26 + 65));
         } else {
@@ -411,14 +420,12 @@
 
   /** Vigenère decode */
   function vigenereDecode(text, key) {
-    // Filter key to only alphabetic characters
-    const alphabeticKey = key.split("").filter(c => /[a-zA-Z]/.test(c)).join("");
+    const shifts = buildShiftCycle(key);
     const result = [];
     let keyIndex = 0;
     for (const char of text) {
       if (/[a-zA-Z]/.test(char)) {
-        const keyChar = alphabeticKey[keyIndex % alphabeticKey.length];
-        const shift = keyChar.toUpperCase().charCodeAt(0) - 65;
+        const shift = shifts[keyIndex % shifts.length];
         if (char === char.toUpperCase()) {
           result.push(String.fromCharCode(((char.charCodeAt(0) - 65 - shift) % 26 + 26) % 26 + 65));
         } else {

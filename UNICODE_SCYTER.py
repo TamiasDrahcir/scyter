@@ -47,14 +47,24 @@ def get_today_constellation():
     return get_constellation(datetime(today_beijing.year, today_beijing.month, today_beijing.day))
 
 # Vigenère cipher
+# Each key character contributes its own shift: letters use A=0..Z=25, digits use their face value
+def key_char_shift(c):
+    if c.isalpha():
+        return ord(c.upper()) - ord('A')
+    if c.isdigit():
+        return int(c)
+    return None
+
+def build_shift_cycle(key):
+    return [key_char_shift(c) for c in key if key_char_shift(c) is not None]
+
 def vigenere_encode(text, key):
-    # Filter key to only alphabetic characters
-    alphabetic_key = "".join(c for c in key if c.isalpha())
+    shifts = build_shift_cycle(key)
     result = []
     key_index = 0
     for char in text:
         if char.isalpha():
-            shift = ord(alphabetic_key[key_index % len(alphabetic_key)].upper()) - ord('A')
+            shift = shifts[key_index % len(shifts)]
             if char.isupper():
                 result.append(chr((ord(char) - ord('A') + shift) % 26 + ord('A')))
             else:
@@ -65,13 +75,12 @@ def vigenere_encode(text, key):
     return "".join(result)
 
 def vigenere_decode(text, key):
-    # Filter key to only alphabetic characters
-    alphabetic_key = "".join(c for c in key if c.isalpha())
+    shifts = build_shift_cycle(key)
     result = []
     key_index = 0
     for char in text:
         if char.isalpha():
-            shift = ord(alphabetic_key[key_index % len(alphabetic_key)].upper()) - ord('A')
+            shift = shifts[key_index % len(shifts)]
             if char.isupper():
                 result.append(chr((ord(char) - ord('A') - shift) % 26 + ord('A')))
             else:
